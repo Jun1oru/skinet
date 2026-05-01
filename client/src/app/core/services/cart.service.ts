@@ -1,9 +1,9 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { Cart, CartItem } from '../../shared/models/cart';
+import { Cart, CartItem, Coupon } from '../../shared/models/cart';
 import { Product } from '../../shared/models/product';
-import { firstValueFrom, map, tap } from 'rxjs';
+import { firstValueFrom, map, Observable, tap } from 'rxjs';
 import { DeliveryMethod } from '../../shared/models/deliveryMethod';
 
 @Injectable({
@@ -20,15 +20,29 @@ export class CartService {
   totals = computed(() => {
     const cart = this.cart();
     const delivery = this.selectedDelivery();
+
     if (!cart) return null;
     const subtotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    let discountValue = 0;
+
+    if (cart.appCoupon) {
+      if (cart.appCoupon.amountOff) {
+        discountValue = cart.appCoupon.amountOff;
+      } else if (cart.appCoupon.percentOff) {
+        discountValue = subtotal * (cart.appCoupon.percentOff / 100);
+      }
+    }
+
     const shipping = delivery ? delivery.price : 0;
-    const discount = 0;
+
+    const total = subtotal + shipping - discountValue;
+
     return {
       subtotal,
       shipping,
-      discount,
-      total: subtotal + shipping - discount,
+      discount: discountValue,
+      total,
     };
   });
 
@@ -83,6 +97,10 @@ export class CartService {
         this.cart.set(null);
       },
     });
+  }
+
+  applyDiscount(code: string): Observable<Coupon> {
+    return this.http.get<Coupon>(this.baseUrl + 'coupons/' + code);
   }
 
   private addOrUpdateItem(items: CartItem[], item: CartItem, quantity: number): CartItem[] {

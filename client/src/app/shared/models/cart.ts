@@ -6,6 +6,7 @@ export type CartType = {
   deliveryMethodId?: number;
   paymentIntentId?: string;
   clientSecret?: string;
+  appCoupon?: Coupon;
 };
 
 export type CartItem = {
@@ -17,11 +18,19 @@ export type CartItem = {
   brand: string;
   type: string;
 };
-
 export class Cart implements CartType {
   id = nanoid();
   items: CartItem[] = [];
   deliveryMethodId?: number;
   paymentIntentId?: string;
   clientSecret?: string;
+  appCoupon?: Coupon;
 }
+
+export type Coupon = {
+  name: string;
+  amountOff?: number;
+  percentOff?: number;
+  promotionCode: string;
+  couponId: string;
+};
