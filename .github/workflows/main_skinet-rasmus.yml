@@ -76,3 +76,4 @@ jobs:
           app-name: 'skinet-rasmus'
           slot-name: 'Production'
           package: .
+          restart: true
