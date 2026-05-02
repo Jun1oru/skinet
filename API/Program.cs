@@ -15,7 +15,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddDbContext<StoreContext>(opt =>
 {
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"), sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null
+        );
+    });
 });
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
@@ -63,8 +70,24 @@ try
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<StoreContext>();
     var userManager = services.GetRequiredService<UserManager<AppUser>>();
-    await context.Database.MigrateAsync();
-    await StoreContextSeed.SeedAsync(context, userManager);
+
+    var retries = 5;
+    while (retries > 0)
+    {
+        try
+        {
+            await context.Database.MigrateAsync();
+            await StoreContextSeed.SeedAsync(context, userManager);
+            break;
+        }
+        catch (Exception ex)
+        {
+            retries--;
+            Console.WriteLine($"Migration failed, retries left: {retries}. Error: {ex.Message}");
+            if (retries == 0) throw;
+            await Task.Delay(TimeSpan.FromSeconds(10));
+        }
+    }
 }
 catch (Exception ex)
 {
